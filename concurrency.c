@@ -3,10 +3,13 @@
 #include <stdbool.h>
 #include <pthread.h> 
 #include <time.h>
+#include <unistd.h>
 
-volatile bool stop = false;
+volatile int counter = 0;
+
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
-pthread_cond_t wakeChef = PTHREAD_COND_INITIALIZER; 
+pthread_cond_t wakeChef = PTHREAD_COND_INITIALIZER;
+//pthread_cond_t foodMade = PTHREAD_COND_INITIALIZER;
 
 typedef struct{
     int id;
@@ -26,7 +29,7 @@ void printCust(Customer *cust){
 }
 
 void printFood(){
-    printf("FOOD AVALIABLE | hamburger:%s ", (food.h ? "T": "F"));
+    printf("\nROUND %d | hamburger:%s ", counter, (food.h ? "T": "F"));
     printf("fries:%s ", (food.f ? "T": "F"));
     printf("soda:%s\n", (food.s ? "T": "F"));
 }
@@ -54,27 +57,21 @@ void makefood(){
 
 
 void* chef(void *arg){
-    int counter = 0;
-    while (!stop){
+    while (counter != 100){
         pthread_mutex_lock(&m);
         printf("chef wake\n");
         makefood();
         printFood();
         counter++;
-        
-        if (counter == 100){
-            stop = true;
-            pthread_mutex_unlock(&m);
-            break;
-        }
 
         while (food.h != false || food.f != false || food.s != false){
+            //pthread_cond_broadcast(&foodMade);
             printf("chef sleep\n");
             pthread_cond_wait(&wakeChef, &m);
         }
-
         pthread_mutex_unlock(&m);
     }
+    //stop = true;
 }
 
 void pick(Customer * cust){
@@ -109,26 +106,32 @@ void fed(Customer *cust){
             cust->gotF = false;
             break;
     }
-    printf("Cust %d fed\n", cust->id);
+    printf("Cust %d fed\t", cust->id);
+    printCust(cust);
+    //sleep(10);
 }
 
 void* eat(void *args){
     Customer *cust = (Customer *) args;
-    while (!stop){
+    while (counter != 100){
+        //printf("cust%d called\n", cust->id);fflush(stdout);
         pthread_mutex_lock(&m);
+        //printf("cust%d locked\n", cust->id); fflush(stdout);
+        //pthread_cond_wait(&foodMade, &m);
         //printf("%c", cust->bring);
         pick(cust);
         //printCust(cust);
         //printFood();
+               
+        if(food.h == false && food.f == false && food.s == false){
+            pthread_cond_signal(&wakeChef);
+        }           
+
+        pthread_mutex_unlock(&m);
+
         if(cust->gotH == true && cust->gotF == true && cust->gotS == true)
             fed(cust);
-
-        if(food.h == false && food.f == false && food.s == false){
-            pthread_mutex_unlock(&m);
-            pthread_cond_signal(&wakeChef);
-            continue;
-        }
-        pthread_mutex_unlock(&m);
+        //printf("unlocked\n");
     }
 }
 
