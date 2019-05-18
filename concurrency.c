@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <pthread.h> 
 
+bool stop = false;
 
 typedef struct{
     char bring;
@@ -18,12 +19,21 @@ typedef struct{
 
 void* chef(void *arg){
     int counter = 0;
-    
+    while (!stop){
+        counter++;
+
+        if (counter == 100){
+            stop = true;
+            break;
+        }
+    }
 }
 
 void* eat(void *args){
     Customer *cust = (Customer *) args;
-    
+    while (!stop){
+        printf("%c", cust->bring);
+    }
 }
 
 int main(){
