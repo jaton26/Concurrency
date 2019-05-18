@@ -6,10 +6,12 @@
 #include <unistd.h>
 
 volatile int counter = 0;
+char* CHECK = "\u2713";
+char* CROSS = "\u2717";
 
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t wakeChef = PTHREAD_COND_INITIALIZER;
-//pthread_cond_t foodMade = PTHREAD_COND_INITIALIZER;
+pthread_cond_t foodMade = PTHREAD_COND_INITIALIZER;
 
 typedef struct{
     int id;
@@ -23,15 +25,15 @@ struct{
 } food;
 
 void printCust(Customer *cust){
-    printf("\t| h:%s ", (cust->gotH ? "T": "F"));
-    printf("f:%s ", (cust->gotF ? "T": "F"));
-    printf("s:%s\n", (cust->gotS ? "T": "F"));
+    printf("\t| h%s ", (cust->gotH ? CHECK: CROSS));
+    printf("f%s ", (cust->gotF ? CHECK: CROSS));
+    printf("s%s\n", (cust->gotS ? CHECK: CROSS));
 }
 
 void printFood(){
-    printf("\nROUND %d | hamburger:%s ", counter, (food.h ? "T": "F"));
-    printf("fries:%s ", (food.f ? "T": "F"));
-    printf("soda:%s\n", (food.s ? "T": "F"));
+    printf("\nROUND %d | hamburger%s ", counter, (food.h ? CHECK: CROSS));
+    printf("fries%s ", (food.f ? CHECK: CROSS));
+    printf("soda%s\n", (food.s ? CHECK: CROSS));
 }
 
 void setItem(int item){
@@ -65,7 +67,7 @@ void* chef(void *arg){
         counter++;
 
         while (food.h != false || food.f != false || food.s != false){
-            //pthread_cond_broadcast(&foodMade);
+            pthread_cond_broadcast(&foodMade);
             printf("chef sleep\n");
             pthread_cond_wait(&wakeChef, &m);
         }
@@ -114,24 +116,26 @@ void fed(Customer *cust){
 void* eat(void *args){
     Customer *cust = (Customer *) args;
     while (counter != 100){
-        //printf("cust%d called\n", cust->id);fflush(stdout);
+
         pthread_mutex_lock(&m);
-        //printf("cust%d locked\n", cust->id); fflush(stdout);
+
         //pthread_cond_wait(&foodMade, &m);
-        //printf("%c", cust->bring);
+
         pick(cust);
-        //printCust(cust);
-        //printFood();
+
                
         if(food.h == false && food.f == false && food.s == false){
             pthread_cond_signal(&wakeChef);
         }           
 
-        pthread_mutex_unlock(&m);
+        
 
-        if(cust->gotH == true && cust->gotF == true && cust->gotS == true)
+        if(cust->gotH == true && cust->gotF == true && cust->gotS == true){
             fed(cust);
-        //printf("unlocked\n");
+            //pthread_cond_wait(&foodMade, &m);
+        }
+        
+        pthread_mutex_unlock(&m);
     }
 }
 
