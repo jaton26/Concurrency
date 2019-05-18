@@ -1,6 +1,8 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <pthread.h> 
+#include <time.h>
 
 volatile bool stop = false;
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
@@ -14,7 +16,7 @@ typedef struct{
 
 struct{
     bool h, f, s;
-} Food;
+} food;
 
 
 void* chef(void *arg){
@@ -28,12 +30,36 @@ void* chef(void *arg){
             pthread_mutex_unlock(&m);
             break;
         }
-        while (Food.h != false || Food.f != false || Food.s != false)
+
+        while (food.h != false || food.f != false || food.s != false)
             pthread_cond_wait(&c, &m);
 
         pthread_mutex_unlock(&m);
     }
 }
+
+void setItem(int item){
+    switch(item){
+        case 0: food.h = true; break;
+        case 1: food.f = true; break;
+        case 2: food.s = true; break;
+        default: break;
+    }
+}
+
+void makefood(){
+    int item1, item2;
+    srand(time(0));
+    item1 = rand()% 3; 
+    do{
+        srand(time(0));
+        item2 = rand() % 3;
+    } while(item1 == item2); 
+    
+    setItem(item1);
+    setItem(item2);
+}
+
 
 void* eat(void *args){
     Customer *cust = (Customer *) args;
@@ -43,14 +69,13 @@ void* eat(void *args){
 }
 
 int main(){
-    Customer cust0, cust1, cust2;
-    cust0.bring = 'h';
-    cust1.bring = 'f';
-    cust2.bring = 's';
+    Customer cust0 = (Customer){.bring = 'h', .fedCount = 0, .gotH = true, .gotF = false, .gotS = false};
+    Customer cust1 = (Customer){.bring = 'f', .fedCount = 0, .gotH = false, .gotF = true, .gotS = false};
+    Customer cust2 = (Customer){.bring = 's', .fedCount = 0, .gotH = false, .gotF = false, .gotS = true};
 
-    Food.h = true;
-    Food.f = true;
-    Food.s = true;
+    food.h = true;
+    food.f = true;
+    food.s = true;
 
     pthread_t eat0, eat1, eat2, cook;
 
@@ -61,9 +86,9 @@ int main(){
 
    
     pthread_mutex_lock(&m);
-    Food.h = false;
-    Food.f = false;
-    Food.s = false;
+    food.h = false;
+    food.f = false;
+    food.s = false;
     pthread_cond_signal(&c);
     pthread_mutex_unlock(&m);
 
