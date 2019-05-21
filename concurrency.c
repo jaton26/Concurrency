@@ -6,12 +6,16 @@
 #include <unistd.h>
 
 volatile int counter = 0;
+int MAX = 100;
+
 char* CHECK = "\u2713";
 char* CROSS = "\u2717";
 
 pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
 pthread_cond_t wakeChef = PTHREAD_COND_INITIALIZER;
-pthread_cond_t foodMade = PTHREAD_COND_INITIALIZER;
+pthread_cond_t wakeHCust = PTHREAD_COND_INITIALIZER;
+pthread_cond_t wakeFCust = PTHREAD_COND_INITIALIZER;
+pthread_cond_t wakeSCust = PTHREAD_COND_INITIALIZER;
 
 typedef struct{
     int id;
@@ -59,33 +63,46 @@ void makefood(){
 
 
 void* chef(void *arg){
-    while (counter != 100){
+    while (counter != MAX){
         pthread_mutex_lock(&m);
         printf("chef wake\n");
         makefood();
         printFood();
         counter++;
+        if(food.h == true && food.f == true)
+            pthread_cond_signal(&wakeSCust);
+        else if(food.h == true && food.s == true)
+            pthread_cond_signal(&wakeFCust);
+        else
+            pthread_cond_signal(&wakeHCust);
 
         while (food.h != false || food.f != false || food.s != false){
-            pthread_cond_broadcast(&foodMade);
             printf("chef sleep\n");
             pthread_cond_wait(&wakeChef, &m);
         }
         pthread_mutex_unlock(&m);
     }
+    pthread_cond_signal(&wakeSCust);
+    pthread_cond_signal(&wakeFCust);
+    pthread_cond_signal(&wakeHCust);
     //stop = true;
 }
+
 
 void pick(Customer * cust){
     if(cust->gotH != true && food.h == true){
         cust->gotH = true;
         food.h = false;
         printf("Cust %d picked hamburger", cust->id); printCust(cust);
-    } else if(cust->gotF != true && food.f == true){
+    } 
+    
+    if(cust->gotF != true && food.f == true){
         cust->gotF = true;
         food.f = false;
         printf("Cust %d picked fries", cust->id); printCust(cust);
-    } else if(cust->gotS != true && food.s == true){
+    }
+    
+    if(cust->gotS != true && food.s == true){
         cust->gotS = true;
         food.s = false;
         printf("Cust %d picked soda", cust->id); printCust(cust);
@@ -115,11 +132,23 @@ void fed(Customer *cust){
 
 void* eat(void *args){
     Customer *cust = (Customer *) args;
-    while (counter != 100){
+    while (true){
 
         pthread_mutex_lock(&m);
 
-        //pthread_cond_wait(&foodMade, &m);
+        if(counter >= MAX){
+            pthread_mutex_unlock(&m);
+            break;
+        }
+
+        printf("Cust %d sleeps\n", cust->id);
+        switch(cust->bring){
+            case 'h': pthread_cond_wait(&wakeHCust, &m); break;
+            case 'f': pthread_cond_wait(&wakeFCust, &m); break;
+            case 's': pthread_cond_wait(&wakeSCust, &m); break;
+        }
+
+        
 
         pick(cust);
 
@@ -169,10 +198,10 @@ int main(){
     pthread_join(cook, NULL);
 
 
-    printf("\n\nFed count:");
-    printf("Cust %c: %d\n", cust1.id, cust1.fedCount);
-    printf("Cust %c: %d\n", cust2.id, cust2.fedCount);
-    printf("Cust %c: %d\n", cust3.id, cust3.fedCount);
+    printf("\n\nFed count:\n");
+    printf("Cust %d: %d\n", cust1.id, cust1.fedCount);
+    printf("Cust %d: %d\n", cust2.id, cust2.fedCount);
+    printf("Cust %d: %d\n", cust3.id, cust3.fedCount);
 
 
     return 0;
